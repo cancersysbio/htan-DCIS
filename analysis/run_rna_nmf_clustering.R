@@ -118,7 +118,7 @@ remove_noncoding_and_ribosomoal_proteins <- function(rna_matrix, gencode, riboso
 		genes_to_keep <- coding_genes
 		}
 	# only keep coding, non-ribosomal genes
-	rna_matrix_filt <- rna_matrix[genes_to_keep,]
+	rna_matrix_filt <- rna_matrix[rownames(rna_matrix) %in% genes_to_keep,]
 	# return matrix and list of coding genes 
 	output <- list()
 	output$rna_matrix <- rna_matrix_filt
@@ -684,14 +684,39 @@ dev.off()
 # standirize data (not center, matrix has to be positive)
 rna_matrix_4 <- t(scale(t(rna_matrix_3),center = FALSE))
 
+library(ConsensusClusterPlus)
+consens_res <- ConsensusClusterPlus(rna_matrix_4, maxK=10, 
+	reps = 1000, 
+	distance = 'spearman', 
+	title = 'TBCRC_consensus_clustering',
+	seed=1342,
+	plot = 'png'
+	)
+consens_class <- data.frame(
+	Sample_ID = names(consens_res[[3]][['consensusClass']]),
+	CC3 = consens_res[[3]][['consensusClass']]
+	)
+
+nmf <- read.delim('NMF/2021-02-02_TBCRC_design_RNA_CNA_icluster.tsv', as.is = TRUE)
+nmf <- merge(nmf, consens_class, by = 'Sample_ID')
+table(nmf[,c('RNA_3','CC3')])
+
+# check correlation with ER status
+tiff(paste0(date, '_CC3_NMF3_mosaic.tiff'), compression = 'lzw', res = 300, width = 7, height = 7, units = 'in')
+mosaic(~RNA_3+CC3, nmf, shade=TRUE)
+dev.off()
+
+
 er_positive <- design[design$ER_RNA == '+',]
 er_negative <- design[design$ER_RNA == '-',]
 # run NMF from 2 to 10 factors, 30 times
 # takes time and memory
-res_dcis <- NMF::nmf(rna_matrix_4[,er_negative$Sample_ID], rank = 2:14, nrun=30,.options="vp20")
-save(res_dcis, file = paste0(date, '_nmf_results_', args$cohort, '_ER_negative.RData'))
+res_dcis <- NMF::nmf(rna_matrix_4, rank = 2:15, nrun=30,.options="vp20")
+
+
+save(res_dcis, file = paste0(date, '_nmf_results_k15_', args$cohort, '.RData'))
 # here we evealate the clusters quality to pick the best number of clusters
-tiff(filename = paste0(date, '_nmf_plots_', args$cohort, '.tiff'), compression = 'lzw',  res = 300, width = 7, height = 7, units = 'in')
+tiff(filename = paste0(date, '_nmf_plots_k15_', args$cohort, '.tiff'), compression = 'lzw',  res = 300, width = 7, height = 7, units = 'in')
 plot(res_dcis) 
 dev.off()
 # same here, we evaluate how robist are the clisters
@@ -914,8 +939,8 @@ dev.off()
 
 
 ### RUN DIFFERENTIAL ABUNDANCE ANALYSIS ACROSS CLUSTERS ###########################################
-design <- design[!is.na(design$icluster_K5),]
-design <- design[design$icluster_K5 != 1,]
+# design <- design[!is.na(design$icluster_K5),]
+# design <- design[design$icluster_K5 != 1,]
 #use full matrix
 colData <- data.frame(condition = factor(design$NMF_3))
 idna <-  which(is.na(colData$condition))
