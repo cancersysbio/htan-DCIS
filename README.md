@@ -6,7 +6,7 @@
 
 This GitHub repository contains the following folders:
 ```
-└─ figures/: directory containing R and other code to reproduce figures (Fig.1-6)
+└─ figures/: directory containing R and other code to reproduce figures
 | 
 └─ analysis/: directory containing code used for data analysis
 |   └─ calculate_coverage_bias.R: ?
